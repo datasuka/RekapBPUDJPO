@@ -1,5 +1,5 @@
 
-# app.py - Streamlit Rekap Bukti Potong DJP ke Excel (Full Format)
+# app.py - Streamlit Rekap Bukti Potong DJP ke Excel (Final)
 import streamlit as st
 import pdfplumber
 import pandas as pd
@@ -80,13 +80,13 @@ if uploaded_files:
     rows = []
     for file in uploaded_files:
         with pdfplumber.open(file) as pdf:
-            full_text = "\n".join([page.extract_text() for page in pdf if page.extract_text()])
+            full_text = "\n".join([page.extract_text() or "" for page in pdf])
             extracted = extract_bp_data(full_text)
             rows.append(extracted)
 
     df = pd.DataFrame(rows)
     st.markdown("### Data yang berhasil diekstrak:")
-    st.dataframe(df)
+    st.dataframe(df.head(10))
 
     buffer = BytesIO()
     df.to_excel(buffer, index=False)
