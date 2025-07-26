@@ -80,7 +80,7 @@ if uploaded_files:
     rows = []
     for file in uploaded_files:
         with pdfplumber.open(file) as pdf:
-            full_text = "\n".join([page.extract_text() or "" for page in pdf])
+            full_text = "\n".join([page.extract_text() for page in pdf.pages if page.extract_text()])
             extracted = extract_bp_data(full_text)
             rows.append(extracted)
 
