@@ -1,3 +1,4 @@
+
 import streamlit as st
 import pdfplumber
 import pandas as pd
@@ -31,11 +32,13 @@ def extract_bp_data(text):
         return m.group(group).strip() if m else default
 
     def extract_date(t):
-        m = re.search(r"(\d{2})[\-/ ](\d{2})[\-/ ](\d{4})", t)
-        return f"{m.group(1)}/{m.group(2)}/{m.group(3)}" if m else ""
+        if t:
+            m = re.search(r"(\d{2})[\-/ ](\d{2})[\-/ ](\d{4})", t)
+            return f"{m.group(1)}/{m.group(2)}/{m.group(3)}" if m else t
+        return ""
 
     npwp_dipotong = find(r"A\.1\s+NPWP\s+:\s+([\d ]+)")
-    nik_dipotong = find(r"A\.2\s+NIK\s*:?.*?(\d[\d ]{9,})", 1).replace(" ", "")
+    nik_dipotong = find(r"A\.2\s+NIK\s*:?[ \n]+((?:\d\s*){10,})", 1).replace(" ", "")
     nama_dipotong = find(r"A\.3\s+Nama\s+:\s*(.+?)\n")
 
     if nik_dipotong == "A.3":
@@ -44,12 +47,12 @@ def extract_bp_data(text):
     masa_pajak = find(r"(\d{1,2}-\d{4})\s+\d{2}-\d{3}-\d{2}")
     kode_objek = find(r"(\d{2}-\d{3}-\d{2})")
     dpp = find(kode_objek + r"\s+([\d.,]+)", 1)
-    tarif = find(rf"{kode_objek}\s+[\d.,]+\s+([\d.,]+)")
-    pph = find(rf"{kode_objek}\s+[\d.,]+\s+[\d.,]+\s+([\d.,]+)")
-    kena_tarif_lebih_tinggi = "Ya" if "tidak memiliki NPWP" in text.lower() else "Tidak"
+    tarif = find(r"{}\s+[\d.,]+\s+([\d.]+)".format(kode_objek))
+    pph = find(r"{}\s+[\d.,]+\s+[\d.]+\s+([\d.,]+)".format(kode_objek))
+    kena_tarif_lebih_tinggi = "Ya" if "memiliki NPWP" in text and "Tidak" in text else "Tidak"
 
     ket_objek = find(r"Keterangan Kode Objek Pajak\s+:\s+(.+)")
-    nomor_dok = find(r"Nomor Dokumen\s*:?.*?(\S+)", 1)
+    nomor_dok = find(r"Nomor Dokumen\s*:?[ \n]*([^\n]+)", 1)
     nama_dok = find(r"Nama Dokumen\s+:\s*(.+?)\s+Tanggal")
     tanggal_dok = extract_date(find(r"Nama Dokumen[^\d]*(\d{2}[ /-]\d{2}[ /-]\d{4})"))
 
@@ -59,18 +62,20 @@ def extract_bp_data(text):
         nama_dok = ""
 
     nomor_faktur = find(r"Nomor Faktur Pajak\s*:\s*(\d{3}\.\d{3}-\d{2}\.\d{8})")
-    tanggal_faktur = extract_date(find(r"Faktur Pajak[^\d]*(\d{2}[ /-]\d{2}[ /-]\d{4})"))
+    tanggal_faktur = extract_date(find(r"Faktur Pajak[^\d]*(\d{2})[^\d]?(\d{2})[^\d]?(\d{4})"))
 
     pp23 = find(r"PP Nomor 23 Tahun 2018.*?Nomor\s*:\s*(\S+)")
 
-    npwp_pemotong = find(r"C\.1[^\d]*(\d[\d ]+)")
-    nama_wp_pemotong = find(r"C\.2\s+Nama Wajib Pajak\s+:\s*(.+?)\n")
-    nama_pemotong = find(r"C\.4\s+Nama Penandatangan\s+:\s*(.+?)\n")
-    tanggal_potong = extract_date(find(r"C\.3\s+Tanggal[^\d]*(\d{2}[ /-]\d{2}[ /-]\d{4})"))
+    npwp_pemotong = find(r"C\.1\s+NPWP\s+:\s+([\d ]+)")
+    nama_wp_pemotong = find(r"C\.2\s+Nama Wajib Pajak\s+:\s+(.+)")
+    tanggal_potong = find(r"C\.3\s+Tanggal\s+:\s+(\d{2})\s*(\d{2})\s*(\d{4})")
+    if tanggal_potong:
+        tanggal_potong = f"{tanggal_potong[0:2]}/{tanggal_potong[2:4]}/{tanggal_potong[4:]}"
+    penandatangan = find(r"C\.4\s+Nama Penandatangan\s+:\s+(.+?)\n")
 
     return {
-        "Nomor Bukti Potong": find(r"NOMOR\s*:?.*?(\d[\d ]{9,})", 1).replace(" ", ""),
-        "Pembetulan ke-": find(r"Pembetulan Ke-\s*(\d+)"),
+        "Nomor Bukti Potong": find(r"NOMOR\s*:?\s*((?:\d\s*){10})", 1).replace(" ", ""),
+        "Pembetulan ke-": find(r"Pembetulan Ke-\s*([0-9]+)"),
         "Jenis PPh": "Final" if "PPh Final" in text else "Tidak Final",
         "NPWP DIPOTONG/DIPUNGUT": npwp_dipotong.replace(" ", ""),
         "NIK DIPOTONG/DIPUNGUT": nik_dipotong,
@@ -80,7 +85,7 @@ def extract_bp_data(text):
         "Dasar Pengenaan Pajak": dpp.replace(".", "").replace(",", "."),
         "dikenakan tarif lebih tinggi": kena_tarif_lebih_tinggi,
         "tarif (%)": tarif,
-        "PPh dipotong": pph.replace(".", "").replace(",", "."),
+        "Pph dipotong": pph.replace(".", "").replace(",", "."),
         "Keterangan Kode Objek Pajak": ket_objek,
         "Nomor Dokumen Referensi": nomor_dok,
         "Nama Dokumen": nama_dok,
@@ -88,10 +93,10 @@ def extract_bp_data(text):
         "Nomor Faktur Pajak": nomor_faktur,
         "Tanggal Faktur Pajak": tanggal_faktur,
         "SK PP23": pp23,
-        "Nama PEMOTONG/PEMUNGUT": nama_pemotong,
+        "Nama PEMOTONG/PEMUNGUT": penandatangan,
         "Nama wajib pajak PEMOTONG/PEMUNGUT": nama_wp_pemotong,
         "Tanggal Potong": tanggal_potong,
-        "Nama penandatangan": nama_pemotong
+        "Nama penandatangan": penandatangan
     }
 
 if uploaded_files:
@@ -102,9 +107,9 @@ if uploaded_files:
             rows.append(extract_bp_data(full_text))
 
     df = pd.DataFrame(rows)
-    st.markdown("### Data yang berhasil diekstrak:")
+    st.markdown("### Berikut data yang berhasil diekstrak:")
     st.dataframe(df)
 
     buffer = BytesIO()
-    df.to_excel(buffer, index=False, engine="openpyxl")
+    df.to_excel(buffer, index=False)
     st.download_button("📥 Download Excel", data=buffer.getvalue(), file_name="rekap_bp_djp.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
