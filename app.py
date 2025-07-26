@@ -63,7 +63,7 @@ def extract_bp_data(text):
     penandatangan = find(r"C\.4 Nama Penandatangan\s+:\s+(.+)")
 
     return {
-        "Nomor Bukti potong (h.1)": find(r"^\s*([0-9]{10,})", 1),
+        "Nomor Bukti potong (h.1)": find(r"NOMOR\s*:?\s*((?:\d\s*){10})", 1).replace(' ', ''),
         "Pembetulan ke- (H.2)": find(r"Pembetulan Ke-\s*([0-9]+)"),
         "H4. Jenis Pph (Final/tidak final) (h4/h4)": "Final" if "PPh Final" in text else "Tidak Final",
         "NPWP DIPOTONG/DIPUNGUT": npwp_dipotong.replace(" ", ""),
