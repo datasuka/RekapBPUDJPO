@@ -36,8 +36,9 @@ def extract_bp_data(text):
         return f"{m.group(1)}/{m.group(2)}/{m.group(3)}" if m else ""
 
     npwp_dipotong = find(r"A\.1\s+NPWP\s+:\s+([\d ]+)")
-    nik_dipotong = find(r"A\.2\s+NIK\s*:?\s*((?:\d\s*){10,})", 1).replace(" ", "")
-    nama_dipotong = find(r"A\.3\s+Nama\s+:?\s*(.+?)\n")
+    nik_dipotong = find(r"A\.2\s+NIK\s*:?[ \n]*((?:\d\s*){10,})", 1).replace(" ", "")
+    nama_section = text.split("B.")[0]
+    nama_dipotong = find(r"A\.3\s+Nama\s+:?\s*(.+?)\n", default="", text=nama_section)
 
     if nik_dipotong == "A.3":
         nik_dipotong = ""
@@ -50,7 +51,7 @@ def extract_bp_data(text):
     kena_tarif_lebih_tinggi = "Ya" if "memiliki NPWP" in text and "Tidak" in text else "Tidak"
 
     ket_objek = find(r"Keterangan Kode Objek Pajak\s+:\s+(.+)")
-    nomor_dok = find(r"Nomor Dokumen\s*:?\s*((?:\S+))", 1)
+    nomor_dok = find(r"Nomor Dokumen\s*:?[ \n]*((?:\S+))", 1)
     nama_dok = find(r"Nama Dokumen\s+:\s*(.+?)\s+Tanggal")
     tanggal_dok = extract_date(find(r"Nama Dokumen[^\d]*(\d{2}[ /-]\d{2}[ /-]\d{4})"))
 
@@ -64,13 +65,13 @@ def extract_bp_data(text):
 
     pp23 = find(r"PP Nomor 23 Tahun 2018.*?Nomor\s*:\s*(\S+)")
 
-    npwp_pemotong = find(r"C\.1\s+NPWP\s+:\s+([\d ]+)")
-    nama_pemotong = find(r"C\.2\s+Nama Wajib Pajak\s*:\s*(.+?)(?:\s+C\.3|\n)")
-    tanggal_potong = extract_date(find(r"C\.3 Tanggal[^\d]*(\d{2})[^\d]?(\d{2})[^\d]?(\d{4})"))
+    npwp_pemotong = find(r"C\.1\s+:?NPWP\s+([\d ]+)")
+    nama_pemotong = find(r"C\.2\s+:?\s+(.+?)\n")
+    tanggal_potong = extract_date(find(r"C\.3 Tanggal[^\d]*(\d{2}[ /-]\d{2}[ /-]\d{4})"))
     penandatangan = find(r"C\.4 Nama Penandatangan\s+:\s+(.+)")
 
     return {
-        "Nomor Bukti potong (h.1)": find(r"NOMOR\s*:?\s*((?:\d\s*){10})", 1).replace(" ", ""),
+        "Nomor Bukti potong (h.1)": find(r"NOMOR\s*:?[ \n]*((?:\d\s*){10})", 1).replace(" ", ""),
         "Pembetulan ke- (H.2)": find(r"Pembetulan Ke-\s*([0-9]+)"),
         "H4. Jenis Pph (Final/tidak final) (h4/h4)": "Final" if "PPh Final" in text else "Tidak Final",
         "NPWP DIPOTONG/DIPUNGUT": npwp_dipotong.replace(" ", ""),
@@ -89,8 +90,8 @@ def extract_bp_data(text):
         "Dokumen Referensi untuk Faktur Pajak, apabila ada B.8": nomor_faktur,
         "Tanggal Faktur Pajak": tanggal_faktur,
         "PPh berdasarkan PP Nomor 23 Tahun 2018 (B.11)": pp23,
-        "Nama PEMOTONG/PEMUNGUT": penandatangan.split(":")[0].strip() if ":" in penandatangan else penandatangan,
-        "Nama wajib pajak PEMOTONG/PEMUNGUT": nama_pemotong.strip(),
+        "Nama PEMOTONG/PEMUNGUT": nama_pemotong,
+        "Nama wajib pajak PEMOTONG/PEMUNGUT": nama_pemotong,
         "Tanggal Potong": tanggal_potong,
         "Nama penandatangan": penandatangan
     }
