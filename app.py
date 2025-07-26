@@ -63,7 +63,7 @@ def extract_bp_data(text):
     penandatangan = find(r"C\.4 Nama Penandatangan\s+:\s+(.+)")
 
     
-    # Kosongkan jika placeholder terdeteksi
+        # Kosongkan jika placeholder terdeteksi
     if nik_dipotong == 'A.3' or 'A.3' in nik_dipotong:
         nik_dipotong = ""
     if nomor_dok.lower().startswith("nama"):
@@ -71,7 +71,7 @@ def extract_bp_data(text):
     if nama_dok.lower().startswith("tanggal"):
         nama_dok = ""
 
-    return {
+        return {
         "Nomor Bukti potong (h.1)": find(r"NOMOR\s*:?\s*((?:\d\s*){10})", 1).replace(' ', ''),
         "Pembetulan ke- (H.2)": find(r"Pembetulan Ke-\s*([0-9]+)"),
         "H4. Jenis Pph (Final/tidak final) (h4/h4)": "Final" if "PPh Final" in text else "Tidak Final",
@@ -114,7 +114,7 @@ if uploaded_files:
     st.download_button("📥 Download Excel", data=buffer.getvalue(), file_name="rekap_bp_djp.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
 
-    # Kosongkan jika placeholder terdeteksi
+        # Kosongkan jika placeholder terdeteksi
         nik_dipotong = ""
     if nomor_dok.lower().startswith("nama"):
         nomor_dok = ""
