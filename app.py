@@ -28,11 +28,11 @@ st.title("📄 Rekap Bukti Potong DJP ke Excel")
 uploaded_files = st.file_uploader("Upload PDF Bukti Potong", type="pdf", accept_multiple_files=True)
 
 def extract_bp_data(text):
-        def find(pattern, group=1, default=""):
+            def find(pattern, group=1, default=""):
         m = re.search(pattern, text, re.DOTALL)
         return m.group(group).strip() if m else default
     
-        def extract_date(t):
+            def extract_date(t):
         m = re.search(r"(\d{2})[\-/ ](\d{2})[\-/ ](\d{4})", t)
         return f"{m.group(1)}/{m.group(2)}/{m.group(3)}" if m else ""
     
