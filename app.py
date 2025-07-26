@@ -37,8 +37,8 @@ def extract_bp_data(text):
         return f"{m.group(1)}/{m.group(2)}/{m.group(3)}" if m else ""
 
     npwp_dipotong = find(r"A\.1\s+NPWP\s+:\s+([\d ]+)")
-    nik_dipotong = find(r"A\.2\s+NIK\s*:?\s*(\S*)")
-    nama_dipotong = find(r"A\.3\s+Nama\s+(.+?)\n")
+    nik_dipotong = find(r"A\.2\s+NIK\s*:?\s*((?:\d\s*){10,})", 1).replace(" ", "")
+    nama_dipotong = find(r"A\.3\s+Nama\s+:?\s*(.+?)\n")
 
     masa_pajak = find(r"(\d{1,2}-\d{4})\s+\d{2}-\d{3}-\d{2}")
     kode_objek = find(r"(\d{2}-\d{3}-\d{2})")
@@ -48,17 +48,17 @@ def extract_bp_data(text):
     kena_tarif_lebih_tinggi = "Ya" if "memiliki NPWP" in text and "Tidak" in text else "Tidak"
 
     ket_objek = find(r"Keterangan Kode Objek Pajak\s+:\s+(.+)")
-    nomor_dok = find(r"B\.7\s+Dokumen Referensi\s+:\s+Nomor Dokumen\s*(\S+)")
-    nama_dok = find(r"Nama Dokumen\s+(.+)")
+    nomor_dok = find(r"Nomor Dokumen\s*:?\s*((?:\S+))", 1)
+    nama_dok = find(r"Nama Dokumen\s+:\s*(.+?)\s+Tanggal")
     tanggal_dok = extract_date(find(r"Nama Dokumen[^\d]*(\d{2}[ /-]\d{2}[ /-]\d{4})"))
 
     nomor_faktur = find(r"Nomor Faktur Pajak\s*:\s*(\d{3}\.\d{3}-\d{2}\.\d{8})")
-    tanggal_faktur = extract_date(text)
+    tanggal_faktur = extract_date(find(r"Faktur Pajak[^\d]*(\d{2})[^\d]?(\d{2})[^\d]?(\d{4})"))
 
     pp23 = find(r"PP Nomor 23 Tahun 2018.*?Nomor\s*:\s*(\S+)")
 
     npwp_pemotong = find(r"C\.1\s+:NPWP\s+([\d ]+)")
-    nama_pemotong = find(r"C\.2\s+:\s+(.+)")
+    nama_pemotong = find(r"C\.2\s+:\s+(.+?)\n")
     tanggal_potong = extract_date(find(r"C\.3 Tanggal[^\d]*(\d{2}[ /-]\d{2}[ /-]\d{4})"))
     penandatangan = find(r"C\.4 Nama Penandatangan\s+:\s+(.+)")
 
@@ -103,3 +103,12 @@ if uploaded_files:
     buffer = BytesIO()
     df.to_excel(buffer, index=False)
     st.download_button("📥 Download Excel", data=buffer.getvalue(), file_name="rekap_bp_djp.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+
+
+    # Kosongkan jika placeholder terdeteksi
+    if nik_dipotong == 'A.3':
+        nik_dipotong = ""
+    if nomor_dok.lower().startswith("nama"):
+        nomor_dok = ""
+    if nama_dok.lower().startswith("tanggal"):
+        nama_dok = ""
