@@ -62,6 +62,15 @@ def extract_bp_data(text):
     tanggal_potong = extract_date(find(r"C\.3 Tanggal[^\d]*(\d{2}[ /-]\d{2}[ /-]\d{4})"))
     penandatangan = find(r"C\.4 Nama Penandatangan\s+:\s+(.+)")
 
+    
+    # Kosongkan jika placeholder terdeteksi
+    if nik_dipotong == 'A.3' or 'A.3' in nik_dipotong:
+        nik_dipotong = ""
+    if nomor_dok.lower().startswith("nama"):
+        nomor_dok = ""
+    if nama_dok.lower().startswith("tanggal"):
+        nama_dok = ""
+
     return {
         "Nomor Bukti potong (h.1)": find(r"NOMOR\s*:?\s*((?:\d\s*){10})", 1).replace(' ', ''),
         "Pembetulan ke- (H.2)": find(r"Pembetulan Ke-\s*([0-9]+)"),
@@ -106,7 +115,6 @@ if uploaded_files:
 
 
     # Kosongkan jika placeholder terdeteksi
-    if nik_dipotong == 'A.3':
         nik_dipotong = ""
     if nomor_dok.lower().startswith("nama"):
         nomor_dok = ""
