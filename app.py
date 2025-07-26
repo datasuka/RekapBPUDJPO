@@ -107,25 +107,21 @@ def extract_bp_data(text):
     }
     
     if uploaded_files:
-    rows = []
-    for file in uploaded_files:
-        with pdfplumber.open(file) as pdf:
-            full_text = "\n".join([page.extract_text() for page in pdf.pages if page.extract_text()])
-            extracted = extract_bp_data(full_text)
-            rows.append(extracted)
-    
-    df = pd.DataFrame(rows)
-    st.markdown("### Data yang berhasil diekstrak:")
-    st.dataframe(df.head(10))
-    
-    buffer = BytesIO()
-    df.to_excel(buffer, index=False)
-    st.download_button("📥 Download Excel", data=buffer.getvalue(), file_name="rekap_bp_djp.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-    
-    
-    # Kosongkan jika placeholder terdeteksi
-        nik_dipotong = ""
-    if nomor_dok.lower().startswith("nama"):
-        nomor_dok = ""
-    if nama_dok.lower().startswith("tanggal"):
-        nama_dok = ""
+        rows = []
+        for file in uploaded_files:
+            with pdfplumber.open(file) as pdf:
+                full_text = "\n".join([page.extract_text() for page in pdf.pages if page.extract_text()])
+                extracted = extract_bp_data(full_text)
+                rows.append(extracted)
+        df = pd.DataFrame(rows)
+        st.markdown("### Data yang berhasil diekstrak:")
+        st.dataframe(df.head(10))
+        buffer = BytesIO()
+        df.to_excel(buffer, index=False)
+        st.download_button("📥 Download Excel", data=buffer.getvalue(), file_name="rekap_bp_djp.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        # Kosongkan jika placeholder terdeteksi
+            nik_dipotong = ""
+        if nomor_dok.lower().startswith("nama"):
+            nomor_dok = ""
+        if nama_dok.lower().startswith("tanggal"):
+            nama_dok = ""
