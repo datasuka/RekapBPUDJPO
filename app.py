@@ -1,120 +1,82 @@
-# Revisi penuh pada app.py untuk perbaikan parsing data PEMOTONG/PEMUNGUT (C.1 - C.4) dan format angka
-revised_code = """
+
 import streamlit as st
 import pdfplumber
 import pandas as pd
 import re
-import base64
 from io import BytesIO
 
-def extract_bp_data(text):
-    rows = []
-    blocks = re.split(r'(?:A\.1|A\. IDENTITAS|Nomor :|Nomor:)', text)
-    for block in blocks:
-        block = block.strip()
-        if not block:
-            continue
-
-        # Nomor Bukti Potong
-        nomor_bp_match = re.search(r'H\.1\s+NOMOR\s+:\s*([0-9]+)', block)
-        nomor_bp = nomor_bp_match.group(1).strip() if nomor_bp_match else ""
-
-        # Nama DIPOTONG/DIPUNGUT
-        nama_dipotong_match = re.search(r'A\.3\s+Nama\s+:\s*([A-Z0-9 .,\\'’()-]+)', block)
-        nama_dipotong = nama_dipotong_match.group(1).strip() if nama_dipotong_match else ""
-
-        # NIK/NPWP DIPOTONG
-        nik_dipotong_match = re.search(r'A\.2\s+(?:NPWP|NIK)\s*:\s*([0-9.\s]+)', block)
-        nik_dipotong = nik_dipotong_match.group(1).replace(" ", "").replace(".", "") if nik_dipotong_match else ""
-
-        # Masa Pajak (bulan/tahun)
-        masa_match = re.search(r'Tanggal\s*([0-9]{2})\s*([0-9]{2})\s*([0-9]{4})', block)
-        tgl_faktur = f"{masa_match.group(1)}/{masa_match.group(2)}/{masa_match.group(3)}" if masa_match else ""
-
-        # Kode Objek Pajak
-        kode_objek_match = re.search(r'B\.1\s+Kode\s+Objek\s+Pajak\s+:\s*([0-9.]+)', block)
-        kode_objek = kode_objek_match.group(1).strip() if kode_objek_match else ""
-
-        # DPP, Tarif, PPh dipotong, dan format angka
-        dpp_match = re.search(r'B\.3\s+Dasar Pengenaan Pajak\s+:\s*Rp?\s*([\d,.]+)', block)
-        tarif_match = re.search(r'B\.4\s+Tarif\s*\(%\)\s*:\s*([\d,.]+)', block)
-        pph_match = re.search(r'B\.5\s+PPh\s+Dipungut/Dipotong\s+:\s*Rp?\s*([\d,.]+)', block)
-
-        dpp = dpp_match.group(1).replace(".", "").replace(",", ".") if dpp_match else ""
-        tarif = tarif_match.group(1).replace(",", ".") if tarif_match else ""
-        pph = pph_match.group(1).replace(".", "").replace(",", ".") if pph_match else ""
-
-        # Dokumen referensi
-        no_dok = re.search(r'B\.7\s+Nomor Dokumen Referensi\s+:\s*([A-Z0-9./-]+)', block)
-        nama_dok = re.search(r'B\.8\s+Nama Dokumen\s+:\s*([A-Z0-9 .,\\'’()-]+)', block)
-
-        nomor_dokumen = no_dok.group(1).strip() if no_dok else ""
-        nama_dokumen = nama_dok.group(1).strip() if nama_dok else ""
-
-        # PEMOTONG - bagian C.1 s.d C.4
-        npwp_pemotong = ""
-        nama_wp_pemotong = ""
-        tanggal_potong = ""
-        nama_penandatangan = ""
-
-        c1 = re.search(r'C\.1\s+NPWP\s*:\s*([0-9 ]+)', block)
-        if c1:
-            npwp_pemotong = c1.group(1).replace(" ", "").replace(".", "")
-
-        c2 = re.search(r'C\.2\s+Nama Wajib Pajak\s*:\s*(.*)', block)
-        if c2:
-            nama_wp_pemotong = c2.group(1).strip()
-
-        c3 = re.search(r'C\.3\s+Tanggal\s*:\s*([0-9]{2})\s*([0-9]{2})\s*([0-9]{4})', block)
-        if c3:
-            tanggal_potong = f"{c3.group(1)}/{c3.group(2)}/{c3.group(3)}"
-
-        c4 = re.search(r'C\.4\s+Nama Penandatangan\s*:\s*(.*?)\s*(?:C\.5|$)', block, re.DOTALL)
-        if c4:
-            nama_penandatangan = c4.group(1).strip()
-
-        rows.append({
-            "Nomor Bukti Potong": nomor_bp,
-            "NPWP DIPOTONG/DIPUNGUT": nik_dipotong,
-            "Nama DIPOTONG/DIPUNGUT": nama_dipotong,
-            "Masa Pajak": tgl_faktur,
-            "Kode Objek Pajak": kode_objek,
-            "Dasar Pengenaan Pajak": dpp.replace(".", ","),
-            "Tarif (%)": tarif.replace(".", ","),
-            "PPh dipotong": pph.replace(".", ","),
-            "Nomor Dokumen Referensi": nomor_dokumen,
-            "Nama Dokumen": nama_dokumen,
-            "Nama PEMOTONG/PEMUNGUT": nama_penandatangan,
-            "Nama wajib pajak PEMOTONG/PEMUNGUT": nama_wp_pemotong,
-            "Tanggal Potong": tanggal_potong,
-        })
-    return rows
-
 st.set_page_config(page_title="Rekap Bukti Potong DJP", layout="wide")
-st.title("Rekap Data Bukti Potong DJP (PDF)")
+
+def extract_bp_data(text):
+    def extract_with_regex(pattern, default=""):
+        m = re.search(pattern, text, re.DOTALL)
+        return m.group(1).strip() if m else default
+
+    npwp_dipotong = extract_with_regex(r"A\.1\s+NPWP\s+:\s+([\d\.-]+)")
+    nik_dipotong = extract_with_regex(r"A\.2\s+NIK\s+:\s+([\d\.-]+)")
+    nama_dipotong = extract_with_regex(r"A\.3\s+Nama\s+:\s+([A-Z0-9 ,.\-']+)")
+    if nama_dipotong.startswith(":"):
+        nama_dipotong = nama_dipotong[1:].strip()
+
+    masa_pajak = extract_with_regex(r"Masa Pajak.*?([0-9]{2})\s+([0-9]{2})\s+([0-9]{4})")
+    masa_pajak_final = f"{masa_pajak}" if masa_pajak else ""
+
+    kode_objek = extract_with_regex(r"B\.1\s+Kode\s+Objek\s+Pajak\s+:\s+(\d+)")
+    dasar_pengenaan = extract_with_regex(r"B\.3\s+Dasar\s+Pengenaan\s+Pajak\s+:\s+Rp([\d\.]+)")
+    tarif = extract_with_regex(r"B\.4\s+Tarif\s+:\s+([\d\.,]+)%")
+    pph_dipotong = extract_with_regex(r"B\.5\s+PPh\s+Dipungut\s+:\s+Rp([\d\.]+)")
+
+    # replace . with , and remove thousand separator for decimals
+    dasar_pengenaan = dasar_pengenaan.replace(".", ",") if dasar_pengenaan else ""
+    tarif = tarif.replace(".", ",") if tarif else ""
+    pph_dipotong = pph_dipotong.replace(".", ",") if pph_dipotong else ""
+
+    no_dok_ref = extract_with_regex(r"B\.7\s+Nomor\s+Dokumen\s+Referensi\s+:\s+([\w\-/]+)")
+    nama_dok_ref = extract_with_regex(r"B\.8\s+Nama\s+Dokumen\s+:\s+([\w\s\-/]+)")
+    tgl_faktur = extract_with_regex(r"B\.9\s+Tanggal\s+Faktur\s+Pajak\s+:\s+(\d{2})\s+(\d{2})\s+(\d{4})")
+    tanggal_faktur = f"{tgl_faktur}" if tgl_faktur else ""
+
+    npwp_pemotong = extract_with_regex(r"C\.1\s+NPWP\s+:\s+([\d\.-]+)")
+    nama_wp_pemotong = extract_with_regex(r"C\.2\s+Nama\s+Wajib\s+Pajak\s+:\s+([\w\s\-&]+)")
+    tgl_potong = extract_with_regex(r"C\.3\s+Tanggal\s+:\s+(\d{2})\s+(\d{2})\s+(\d{4})")
+    tanggal_potong = f"{tgl_potong}" if tgl_potong else ""
+
+    penandatangan = extract_with_regex(r"C\.4\s+Nama\s+Penandatangan\s+:\s+([A-Z ]+)")
+    return {
+        "NPWP DIPOTONG/DIPUNGUT": npwp_dipotong,
+        "NIK DIPOTONG/DIPUNGUT": nik_dipotong,
+        "Nama DIPOTONG/DIPUNGUT": nama_dipotong,
+        "Masa Pajak": masa_pajak_final,
+        "Kode objek Pajak": kode_objek,
+        "Dasar Pengenaan Pajak": dasar_pengenaan,
+        "tarif (%)": tarif,
+        "PPh dipotong": pph_dipotong,
+        "Nomor Dokumen Referensi": no_dok_ref,
+        "Nama Dokumen": nama_dok_ref,
+        "Tanggal Faktur Pajak": tanggal_faktur,
+        "Nama PEMOTONG/PEMUNGUT": penandatangan,
+        "Nama wajib pajak PEMOTONG/PEMUNGUT": nama_wp_pemotong,
+        "Tanggal Potong": tanggal_potong,
+        "Nama penandatangan": penandatangan
+    }
+
+st.title("Rekap Data Bukti Potong DJP")
+
 uploaded_files = st.file_uploader("Upload file PDF", type=["pdf"], accept_multiple_files=True)
 
 if uploaded_files:
-    all_rows = []
-    for uploaded_file in uploaded_files:
-        with pdfplumber.open(uploaded_file) as pdf:
+    rows = []
+    for file in uploaded_files:
+        with pdfplumber.open(file) as pdf:
             text = ""
             for page in pdf.pages:
-                text += page.extract_text(x_tolerance=1) + "\\n"
-            data_rows = extract_bp_data(text)
-            all_rows.extend(data_rows)
+                text += page.extract_text() + "\n"
+        data = extract_bp_data(text)
+        rows.append(data)
 
-    if all_rows:
-        df = pd.DataFrame(all_rows)
-        st.dataframe(df, use_container_width=True)
+    df = pd.DataFrame(rows)
+    st.dataframe(df, use_container_width=True)
 
-        # Export
-        output = BytesIO()
-        with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-            df.to_excel(writer, index=False, sheet_name='Bukti Potong')
-        st.download_button("Download Excel", data=output.getvalue(), file_name="rekap_bukti_potong.xlsx")
-"""
-
-with open("/mnt/data/app.py", "w", encoding="utf-8") as f:
-    f.write(revised_code)
-
+    to_excel = BytesIO()
+    df.to_excel(to_excel, index=False, engine='openpyxl')
+    st.download_button("Download Excel", data=to_excel.getvalue(), file_name="Rekap_BP_DJP.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
