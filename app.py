@@ -38,9 +38,6 @@ def extract_bp_data(text):
     nik_dipotong = find(r"A\.2\s+NIK\s*:?\s*((?:\d\s*){10,})", 1).replace(" ", "")
     nama_dipotong = find(r"A\.3\s+Nama\s+:?\s*(.+?)\n")
 
-    if nik_dipotong == "A.3":
-        nik_dipotong = ""
-
     masa_pajak = find(r"(\d{1,2}-\d{4})\s+\d{2}-\d{3}-\d{2}")
     kode_objek = find(r"(\d{2}-\d{3}-\d{2})")
     dpp = find(kode_objek + r"\s+([\d.,]+)", 1)
@@ -53,11 +50,6 @@ def extract_bp_data(text):
     nama_dok = find(r"Nama Dokumen\s+:\s*(.+?)\s+Tanggal")
     tanggal_dok = extract_date(find(r"Nama Dokumen[^\d]*(\d{2}[ /-]\d{2}[ /-]\d{4})"))
 
-    if nomor_dok.lower().startswith("nama"):
-        nomor_dok = ""
-    if nama_dok.lower().startswith("tanggal"):
-        nama_dok = ""
-
     nomor_faktur = find(r"Nomor Faktur Pajak\s*:\s*(\d{3}\.\d{3}-\d{2}\.\d{8})")
     tanggal_faktur = extract_date(find(r"Faktur Pajak[^\d]*(\d{2})[^\d]?(\d{2})[^\d]?(\d{4})"))
 
@@ -68,19 +60,26 @@ def extract_bp_data(text):
     tanggal_potong = extract_date(find(r"C\.3 Tanggal[^\d]*(\d{2}[ /-]\d{2}[ /-]\d{4})"))
     penandatangan = find(r"C\.4 Nama Penandatangan\s+:\s+(.+)")
 
+    if nik_dipotong == 'A.3' or 'A.3' in nik_dipotong:
+        nik_dipotong = ""
+    if nomor_dok.lower().startswith("nama"):
+        nomor_dok = ""
+    if nama_dok.lower().startswith("tanggal"):
+        nama_dok = ""
+
     return {
-        "Nomor Bukti potong (h.1)": find(r"NOMOR\s*:?\s*((?:\d\s*){10})", 1).replace(" ", ""),
+        "Nomor Bukti potong (h.1)": find(r"NOMOR\s*:?\s*((?:\d\s*){10})", 1).replace(' ', ''),
         "Pembetulan ke- (H.2)": find(r"Pembetulan Ke-\s*([0-9]+)"),
         "H4. Jenis Pph (Final/tidak final) (h4/h4)": "Final" if "PPh Final" in text else "Tidak Final",
         "NPWP DIPOTONG/DIPUNGUT": npwp_dipotong.replace(" ", ""),
-        "NIK DIPOTONG/DIPUNGUT": nik_dipotong,
-        "Nama DIPOTONG/DIPUNGUT": nama_dipotong.replace(":", "").strip(),
+        "BIK DIPOTONG/DIPUNGUT": nik_dipotong,
+        "Nama DIPOTONG/DIPUNGUT": nama_dipotong,
         "Masa Pajak (b1)": masa_pajak,
         "Kode objek Pajak (b.2)": kode_objek,
-        "Dasar Pengenaan Pajak (B.3)": dpp.replace(".", "").replace(",", "."),
+        "Dasar Pengenaan Pajak (B.3)": dpp.replace(".", "").replace(",", ","),
         "dikenakan tarif lebih tinggi tidak memiliki NPWP": kena_tarif_lebih_tinggi,
         "tarif(%) b.5": tarif,
-        "Pph dipotong B.6": pph.replace(".", "").replace(",", "."),
+        "Pph dipotong B.6": pph.replace(".", "").replace(",", ","),
         "Keterangan Kode Objek Pajak": ket_objek,
         "Nomor Dokumen referensi B.7": nomor_dok,
         "Nama Dokumen": nama_dok,
@@ -99,7 +98,8 @@ if uploaded_files:
     for file in uploaded_files:
         with pdfplumber.open(file) as pdf:
             full_text = "\n".join([page.extract_text() for page in pdf.pages if page.extract_text()])
-            rows.append(extract_bp_data(full_text))
+            extracted = extract_bp_data(full_text)
+            rows.append(extracted)
 
     df = pd.DataFrame(rows)
     st.markdown("### Data yang berhasil diekstrak:")
