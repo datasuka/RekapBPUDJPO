@@ -1,5 +1,5 @@
 
-# app.py - Streamlit Rekap Bukti Potong DJP ke Excel (Final)
+# app.py - Final Revisi Ekstraksi Bukti Potong DJP
 import streamlit as st
 import pdfplumber
 import pandas as pd
@@ -29,52 +29,64 @@ uploaded_files = st.file_uploader("Upload PDF Bukti Potong", type="pdf", accept_
 
 def extract_bp_data(text):
     def find(pattern, group=1, default=""):
-        match = re.search(pattern, text)
-        return match.group(group).strip() if match else default
+        m = re.search(pattern, text, re.DOTALL)
+        return m.group(group).strip() if m else default
 
-    def clean(val):
-        return val.replace(".", "").replace(",", ".") if val else ""
+    def extract_date(t):
+        m = re.search(r"(\d{2})[\-/ ](\d{2})[\-/ ](\d{4})", t)
+        return f"{m.group(1)}/{m.group(2)}/{m.group(3)}" if m else ""
 
-    data = {
-        "Nomor Bukti potong (h.1)": find(r'NOMOR\s+:?\s*([0-9A-Z\-]+)'),
-        "Pembetulan ke- (H.2)": find(r'Pembetulan Ke-?\s*([0-9]+)'),
-        "H4. Jenis Pph (Final/tidak final) (h4/h4)": "Final" if "PPh Final" in text else "Tidak Final" if "PPh Tidak Final" in text else "",
-        "NPWP DIPOTONG/DIPUNGUT": find(r'A\.1\s+NPWP\s+:?\s*([\d\s]+)').replace(" ", ""),
-        "BIK DIPOTONG/DIPUNGUT": find(r'A\.2\s+NIK\s*:?\s*([0-9\-]+)'),
-        "Nama DIPOTONG/DIPUNGUT": find(r'A\.3\s+Nama\s+(.+)'),
-        "Masa Pajak (b1)": find(r'(\d{1,2}-\d{4})\s+\d{2}-\d{3}-\d{2}'),
-        "Kode objek Pajak (b.2)": find(r'(\d{2}-\d{3}-\d{2})'),
-        "Dasar Pengenaan Pajak (B.3)": clean(find(r'\d{2}-\d{3}-\d{2}\s+([\d.,]+)')),
-        "dikenakan tarif lebih tinggi tidak memiliki NPWP": "Ya" if "Tidak\n    memiliki NPWP" in text else "Tidak",
-        "tarif(%) b.5": find(r'([\d.]+)\s+([\d.,]+)\s+V', 1),
-        "Pph dipotong B.6": clean(find(r'([\d.]+)\s+([\d.,]+)\s+V', 2)),
-        "Keterangan Kode Objek Pajak": find(r'Keterangan Kode Objek Pajak\s+:\s+(.+)'),
-        "Nomor Dokumen referensi B.7": find(r'B\.7 Dokumen Referensi\s+:\s+Nomor Dokumen\s+(.+)'),
-        "Nama Dokumen": find(r'B\.7.*?Nama Dokumen\s+(.+)', 1),
-        "Tanggal Dokumen": find(r'Nama Dokumen\s+Tanggal\s+(\d{2}) (\d{2}) (\d{4})'),
-        "Dokumen Referensi untuk Faktur Pajak, apabila ada B.8": find(r'Nomor Faktur Pajak\s*:\s*(\d{3}\.\d{3}-\d{2}\.\d{8})'),
-        "Tanggal Faktur Pajak": find(r'(\d{2}) (\d{2}) (\d{4})'),
-        "PPh berdasarkan PP Nomor 23 Tahun 2018 (B.11)": find(r'PP Nomor 23 Tahun 2018 dengan Nomor\s+:\s+(.+)'),
-        "Nama PEMOTONG/PEMUNGUT": find(r'C\.2\s+:\s+([A-Z .]+)'),
-        "Nama wajib pajak PEMOTONG/PEMUNGUT": find(r'C\.2\s+:\s+([A-Z .]+)'),
-        "Tanggal Potong": find(r'C\.3\s+Tanggal\s+:\s+dd mm yyyy([0-9 ]{10})'),
-        "Nama penandatangan": find(r'C\.4 Nama Penandatangan\s+:\s+(.+)')
+    npwp_dipotong = find(r"A\.1\s+NPWP\s+:\s+([\d ]+)")
+    nik_dipotong = find(r"A\.2\s+NIK\s*:?\s*(\S*)")
+    nama_dipotong = find(r"A\.3\s+Nama\s+(.+?)\n")
+
+    masa_pajak = find(r"(\d{1,2}-\d{4})\s+\d{2}-\d{3}-\d{2}")
+    kode_objek = find(r"(\d{2}-\d{3}-\d{2})")
+    dpp = find(kode_objek + r"\s+([\d.,]+)", 1)
+    tarif = find(r"{}\s+[\d.,]+\s+([\d.]+)".format(kode_objek))
+    pph = find(r"{}\s+[\d.,]+\s+[\d.]+\s+([\d.,]+)".format(kode_objek))
+    kena_tarif_lebih_tinggi = "Ya" if "memiliki NPWP" in text and "Tidak" in text else "Tidak"
+
+    ket_objek = find(r"Keterangan Kode Objek Pajak\s+:\s+(.+)")
+    nomor_dok = find(r"B\.7\s+Dokumen Referensi\s+:\s+Nomor Dokumen\s*(\S+)")
+    nama_dok = find(r"Nama Dokumen\s+(.+)")
+    tanggal_dok = extract_date(find(r"Nama Dokumen[^\d]*(\d{2}[ /-]\d{2}[ /-]\d{4})"))
+
+    nomor_faktur = find(r"Nomor Faktur Pajak\s*:\s*(\d{3}\.\d{3}-\d{2}\.\d{8})")
+    tanggal_faktur = extract_date(text)
+
+    pp23 = find(r"PP Nomor 23 Tahun 2018.*?Nomor\s*:\s*(\S+)")
+
+    npwp_pemotong = find(r"C\.1\s+:NPWP\s+([\d ]+)")
+    nama_pemotong = find(r"C\.2\s+:\s+(.+)")
+    tanggal_potong = extract_date(find(r"C\.3 Tanggal[^\d]*(\d{2}[ /-]\d{2}[ /-]\d{4})"))
+    penandatangan = find(r"C\.4 Nama Penandatangan\s+:\s+(.+)")
+
+    return {
+        "Nomor Bukti potong (h.1)": find(r"^\s*([0-9]{10,})", 1),
+        "Pembetulan ke- (H.2)": find(r"Pembetulan Ke-\s*([0-9]+)"),
+        "H4. Jenis Pph (Final/tidak final) (h4/h4)": "Final" if "PPh Final" in text else "Tidak Final",
+        "NPWP DIPOTONG/DIPUNGUT": npwp_dipotong.replace(" ", ""),
+        "BIK DIPOTONG/DIPUNGUT": nik_dipotong,
+        "Nama DIPOTONG/DIPUNGUT": nama_dipotong,
+        "Masa Pajak (b1)": masa_pajak,
+        "Kode objek Pajak (b.2)": kode_objek,
+        "Dasar Pengenaan Pajak (B.3)": dpp.replace(".", "").replace(",", "."),
+        "dikenakan tarif lebih tinggi tidak memiliki NPWP": kena_tarif_lebih_tinggi,
+        "tarif(%) b.5": tarif,
+        "Pph dipotong B.6": pph.replace(".", "").replace(",", "."),
+        "Keterangan Kode Objek Pajak": ket_objek,
+        "Nomor Dokumen referensi B.7": nomor_dok,
+        "Nama Dokumen": nama_dok,
+        "Tanggal Dokumen": tanggal_dok,
+        "Dokumen Referensi untuk Faktur Pajak, apabila ada B.8": nomor_faktur,
+        "Tanggal Faktur Pajak": tanggal_faktur,
+        "PPh berdasarkan PP Nomor 23 Tahun 2018 (B.11)": pp23,
+        "Nama PEMOTONG/PEMUNGUT": nama_pemotong,
+        "Nama wajib pajak PEMOTONG/PEMUNGUT": nama_pemotong,
+        "Tanggal Potong": tanggal_potong,
+        "Nama penandatangan": penandatangan
     }
-
-    dok_date = re.search(r'Nama Dokumen\s+Tanggal\s+(\d{2}) (\d{2}) (\d{4})', text)
-    if dok_date:
-        data["Tanggal Dokumen"] = f"{dok_date.group(1)}/{dok_date.group(2)}/{dok_date.group(3)}"
-
-    faktur_date = re.search(r'Faktur Pajak.*?(\d{2}) (\d{2}) (\d{4})', text)
-    if faktur_date:
-        data["Tanggal Faktur Pajak"] = f"{faktur_date.group(1)}/{faktur_date.group(2)}/{faktur_date.group(3)}"
-
-    potong_date = data["Tanggal Potong"]
-    if potong_date and len(potong_date.strip().split()) == 3:
-        d, m, y = potong_date.strip().split()
-        data["Tanggal Potong"] = f"{d}/{m}/{y}"
-
-    return data
 
 if uploaded_files:
     rows = []
